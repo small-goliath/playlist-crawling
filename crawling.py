@@ -31,6 +31,9 @@ def get_host(uri: str) -> str:
     parsed_url = urlparse(uri)
     return parsed_url.hostname
 
+def clean(target:str) -> str:
+    return target.replace(" ", "").replace("'", "").replace("’", "").replace(",", "").replace(".", "").lower()
+
 def extract_songs(uri:str):
     host = get_host(uri)
 
@@ -41,8 +44,8 @@ def extract_songs(uri:str):
         rows = driver.find_elements(By.XPATH, rows_xpath)
         for row in rows:
             try:
-                title = row.find_element(By.XPATH, './td[3]/div/div/a[2]').text
-                artist = row.find_element(By.XPATH, './td[4]/div/div/a').text
+                title = clean(row.find_element(By.XPATH, './td[3]/div/div/a[2]').text)
+                artist = clean(row.find_element(By.XPATH, './td[4]/div/div/a').text)
                 songs.append((title, artist))
             except:
                 continue
@@ -95,8 +98,8 @@ def get_songs(uri:str):
     
         for row in rows:
             try:
-                title = row.find_element(By.XPATH, './td[3]/div[1]/span/a/span').text
-                artist = row.find_element(By.XPATH, './td[3]/div[2]/span[1]/span/a/span').text
+                title = clean(row.find_element(By.XPATH, './td[3]/div[1]/span/a/span').text)
+                artist = clean(row.find_element(By.XPATH, './td[3]/div[2]/span[1]/span/a/span').text)
                 songs.append((title, artist))
             except:
                 continue
@@ -110,15 +113,32 @@ def save_csv(file_path: str):
         writer.writerow(["곡명", "아티스트"])
         writer.writerows(sorted_songs)
 
+def compare_and_save(source_file: str, target_file: str, result_file: str):
+    log.info("Comparing...")
+    with open(source_file, mode="r", encoding="utf-8") as source, open(target_file, mode="r", encoding="utf-8") as target:
+        reader_source = set(tuple(row) for row in csv.reader(source))
+        reader_target = set(tuple(row) for row in csv.reader(target))
+        
+        difference =  reader_source - reader_target
+    
+    with open(result_file, mode="w", newline="", encoding="utf-8") as file_c:
+        writer = csv.writer(file_c)
+        writer.writerows(difference)
+
 if __name__ == "__main__":
     old_playlist_uri = os.getenv("old_playlist_uri")
     new_playlist_uri = os.getenv("new_playlist_uri")
+    source_file = 'old_playlist.csv'
+    target_file = 'new_playlist.csv'
+    result_file = 'compared_playlist.csv'
 
     try:
         get_songs(old_playlist_uri)
-        save_csv("old_playlist.csv")
+        save_csv(source_file)
         get_songs(new_playlist_uri)
-        save_csv("new_playlist.csv")
+        save_csv(target_file)
+
+        compare_and_save(source_file, target_file, result_file)
     except Exception as e:
         log.error(f"Error occurred: {e}")
         raise e
